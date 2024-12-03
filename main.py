@@ -1,8 +1,9 @@
 import os
 from data.input_handler import load_and_validate
-from db.utils import find_existing_products, save_product_to_db
+from db.utils import find_existing_products
 from spec.tech_scraper import TechScraper
 import pandas as pd
+import datetime
 
 def process_products(input_filepath, output_filepath):
     # Step 1: Load and validate the user-provided Excel file
@@ -18,22 +19,25 @@ def process_products(input_filepath, output_filepath):
     missing_products_df = pd.DataFrame(missing_products)
 
     # Step 3: Scrape missing products
-    scraper = TechScraper()  # You may need to choose the appropriate scraper based on the category
+    scraper = TechScraper(headless_mode=False)  # Set headless mode to False to allow scraping from 91mobiles
     scraped_data = []
     
     for _, product in missing_products_df.iterrows():
         product_name = product['Product Name']
         model_name = product['Model Name']
+        category = product['Category'].lower()
         print(f"Scraping product: {product_name} {model_name}")
+        
+        # For 91mobiles, use the product name and the model name as the search query
+        search_query = f"{product_name} {model_name}"
 
         # Trigger the scraping process
-        product_url = scraper.search_product(product_name)
+        product_url = scraper.search_product(search_query)
         if product_url:
             product_details = scraper.extract_technical_details(product_url)
             if product_details:
+                product_details['category'] = category  # Add category information to the scraped data
                 scraped_data.append(product_details)
-                # Save to database
-                save_product_to_db(product_details)
     
     # Close the scraper
     scraper.close()
@@ -45,7 +49,15 @@ def process_products(input_filepath, output_filepath):
 
     # Concatenate dataframes
     final_df = pd.concat([existing_df, scraped_df], ignore_index=True)
-    final_df.to_excel(output_filepath, index=False, sheet_name="Product Details")
+
+    # Split data by category and write to different sheets
+    with pd.ExcelWriter(output_filepath, engine='openpyxl') as writer:
+        if not final_df.empty:
+            for category in final_df['category'].unique():
+                category_df = final_df[final_df['category'] == category]
+                sheet_name = category.capitalize()
+                category_df.to_excel(writer, index=False, sheet_name=sheet_name)
+    
     print(f"Output generated at {output_filepath}")
 
 if __name__ == "__main__":

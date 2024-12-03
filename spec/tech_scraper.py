@@ -3,23 +3,37 @@ from db.utils import save_product_to_db
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
 import json
 
 class TechScraper(BaseScraper):
+    def __init__(self, headless_mode=True):
+        # Pass headless_mode parameter to BaseScraper constructor
+        super().__init__(headless_mode=headless_mode)
+
     def search_product(self, product_name):
         self.driver.get('https://www.91mobiles.com/')
         try:
+            # Wait until the search box is present
             search_box = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, '//*[@id="autoSuggestTxtBox"]'))
             )
+            # Clear and enter the product name into the search box
             search_box.clear()
             search_box.send_keys(product_name)
 
+            # Adding a small delay to ensure all typing is registered
+            WebDriverWait(self.driver, 3).until(
+                EC.text_to_be_present_in_element_value((By.XPATH, '//*[@id="autoSuggestTxtBox"]'), product_name)
+            )
+
+            # Wait for the search button to be clickable and interact using ActionChains
             search_button = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, '//*[@id="main_auto_search"]'))
             )
-            search_button.click()
+            ActionChains(self.driver).move_to_element(search_button).click().perform()
 
+            # Wait until the search results are loaded
             WebDriverWait(self.driver, 10).until(
                 EC.presence_of_all_elements_located((By.CLASS_NAME, 'hover_blue_link'))
             )
@@ -65,5 +79,5 @@ class TechScraper(BaseScraper):
             "source": "91mobiles"
         }
 
-        save_product_to_db(product_data)
+        # Just return the specs data for now (not saving to DB)
         return specs_data

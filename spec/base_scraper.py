@@ -7,9 +7,10 @@ import time
 import random
 
 class BaseScraper:
-    def __init__(self):
+    def __init__(self, headless_mode=True):
         options = webdriver.ChromeOptions()
-        options.add_argument("--headless")
+        if headless_mode:
+            options.add_argument("--headless")
         self.driver = webdriver.Chrome(options=options)
 
     def load_page(self, url, timeout=10):
