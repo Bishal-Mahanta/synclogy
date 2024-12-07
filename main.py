@@ -122,6 +122,7 @@ def process_amazon_and_91mobiles(input_filepath, output_filepath):
     for _, product in not_found_df.iterrows():
         product_name = product['Product Name']
         model_name = product.get('Model Name', '')
+        category = product['Category']
         search_query = f"{product_name} {model_name}".strip()
         logging.info(f"Processing: {search_query}")
 
@@ -152,7 +153,7 @@ def process_amazon_and_91mobiles(input_filepath, output_filepath):
 
     if amazon_details:
         amazon_df = pd.DataFrame(amazon_details)
-        append_to_sheet(output_filepath, "Amazon Product Details", amazon_df)
+        append_to_sheet(output_filepath, f"Amazon Product Details {str(category).capitalize()}", amazon_df)
         logging.info("Amazon product details saved to 'Amazon Product Details'.")
         
 def process_images():
@@ -180,14 +181,14 @@ def upload_images_and_update_links():
 
 
 if __name__ == "__main__":
-    # input_filepath = "data/product_data.xlsx"  # Example input file path
-    # output_filepath = "data/output_scraper_results.xlsx"  # Example output file path
+    input_filepath = "data/product_data.xlsx"  # Example input file path
+    output_filepath = "data/output_scraper_results.xlsx"  # Example output file path
 
-    # if not os.path.exists(input_filepath):
-    #     logging.error(f"Input file '{input_filepath}' not found.")
-    # else:
-    #     process_flipkart_products(input_filepath, output_filepath)
-    #     process_amazon_and_91mobiles(input_filepath, output_filepath)
+    if not os.path.exists(input_filepath):
+        logging.error(f"Input file '{input_filepath}' not found.")
+    else:
+        process_flipkart_products(input_filepath, output_filepath)
+        process_amazon_and_91mobiles(input_filepath, output_filepath)
         
     # process_images()
-    upload_images_and_update_links()
+    # upload_images_and_update_links()

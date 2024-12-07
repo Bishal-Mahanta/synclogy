@@ -7,7 +7,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import NoSuchElementException
 import random
-from spec.tech_scraper import TechScraper  # Import TechScraper
 
 class AmazonScraper:
     def __init__(self):
@@ -27,7 +26,7 @@ class AmazonScraper:
         Searches Amazon for a product and retrieves the links of matching items.
         """
         logging.info(f"Searching Amazon for: {product_name}")
-        search_url = f"https://www.amazon.in/s?k={product_name.replace(' ', '+')}"
+        search_url = f"https://www.amazon.in/s?k={product_name.replace(' ', '+').replace('++', '+')}"
         self.driver.get(search_url)
 
         time.sleep(2)  # Mimic human browsing behavior
@@ -62,6 +61,7 @@ class AmazonScraper:
         # Comprehensive price selectors
         price_selectors = {
             "Offer Price": [
+                "span.aok-align-center:nth-child(3) > span:nth-child(2) > span.a-price-whole",
                 "span.a-price-whole",
                 "span.a-offscreen",
                 "div.a-section.a-spacing-none.aok-align-center > span.a-price-whole",
@@ -69,7 +69,11 @@ class AmazonScraper:
                 "div.a-price.a-size-medium.a-color-price > span.a-offscreen"
             ],
             "MRP": [
+                "span.a-text-price > span.a-offscreen",
                 "span.a-price.a-text-price > span.a-offscreen",
+                "span.a-text-price > span.a-offscreen",
+                "span.a-text-price > span:nth-child(2)",
+                "span.aok-align-center:nth-child(3) > span:nth-child(2) > span.a-price-whole",
                 "span.a-text-price > span",
                 "span.basisPrice > span.a-offscreen",
                 "div.a-row.a-size-base.a-color-secondary > span"
@@ -87,7 +91,6 @@ class AmazonScraper:
                     
                     if extracted_price:
                         price_details[price_type] = extracted_price
-                        logging.info(f"{price_type} found: {extracted_price}")
                         break
                 except NoSuchElementException:
                     continue
