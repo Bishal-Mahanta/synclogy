@@ -190,5 +190,5 @@ if __name__ == "__main__":
         process_flipkart_products(input_filepath, output_filepath)
         process_amazon_and_91mobiles(input_filepath, output_filepath)
         
-    # process_images()
-    # upload_images_and_update_links()
+    process_images()
+    upload_images_and_update_links()

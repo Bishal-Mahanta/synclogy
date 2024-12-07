@@ -111,7 +111,7 @@ def main():
     """
     local_directory = "output/images"
     remote_directory = "domains/synclogy.in/public_html/uploads/images"  # Corrected remote directory
-    output_excel_file = "uploaded_image_links.xlsx"
+    output_excel_file = "data/uploaded_image_links.xlsx"
 
     ftp = None
     try:
