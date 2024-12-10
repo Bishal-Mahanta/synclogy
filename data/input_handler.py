@@ -1,29 +1,27 @@
 import pandas as pd
+import logging
 
-def load_and_validate(filepath):
-    """Loads the Excel file and validates its content."""
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def load_input_data(filepath):
+    """
+    Loads input data from an Excel file without validation.
+    
+    Parameters:
+        filepath (str): Path to the input Excel file.
+    
+    Returns:
+        DataFrame: Loaded data as a pandas DataFrame, or None if loading fails.
+    """
     try:
-        df = pd.read_excel(filepath, sheet_name='Product List')
-        required_columns = ['Product Name', 'Model Name', 'Color', 'Category']
-        for col in required_columns:
-            if col not in df.columns:
-                raise ValueError(f"Missing required column: '{col}'")
-
-        df['Product Name'] = df['Product Name'].str.strip().str.title()
-        df['Model Name'] = df['Model Name'].str.strip().str.title()
-        df['Color'] = df['Color'].str.strip().str.title()
-        df['Category'] = df['Category'].str.strip().str.lower()
-
-        if df[required_columns].isnull().any().any():
-            raise ValueError("One or more required fields are missing values.")
-
-        return df
-
+        logging.info(f"Loading input data from: {filepath}")
+        data = pd.read_excel(filepath)
+        logging.info("Input data loaded successfully.")
+        return data
     except FileNotFoundError:
-        print(f"Error: File '{filepath}' not found.")
-    except ValueError as e:
-        print(f"Validation error: {e}")
+        logging.error(f"File not found: {filepath}")
+        return None
     except Exception as e:
-        print(f"An unexpected error occurred while loading the file: {e}")
-
-    return None
+        logging.error(f"Error loading input file: {e}")
+        return None

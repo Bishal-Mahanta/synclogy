@@ -35,22 +35,27 @@ class FlipkartScraper:
         product_links = []
         try:
             # Locate all product link elements
-            product_elements = self.driver.find_elements(By.CSS_SELECTOR, "a.CGtC98")
-            for element in product_elements:
-                try:
-                    href = element.get_attribute("href")
-                    if href:
-                        parsed_name_match = re.search(r"https://www\.flipkart\.com/([a-zA-Z0-9\-]+)", href)
-                        if parsed_name_match:
-                            parsed_name = parsed_name_match.group(1).replace("-", " ").replace("/", "").strip().lower()
-                            logging.info("Parsed product name from URL: %s", parsed_name)
+            product_elements_selectors = [
+                "a.CGtC98",
+                "a.wjcEIp"
+            ]
+            for selector in product_elements_selectors:
+                product_elements = self.driver.find_elements(By.CSS_SELECTOR, selector) 
+                for element in product_elements:
+                    try:
+                        href = element.get_attribute("href")
+                        if href:
+                            parsed_name_match = re.search(r"https://www\.flipkart\.com/([a-zA-Z0-9\-]+)", href)
+                            if parsed_name_match:
+                                parsed_name = parsed_name_match.group(1).replace("-", " ").replace("/", "").strip().lower()
+                                logging.info("Parsed product name from URL: %s", parsed_name)
 
-                            # Check if parsed name contains the input product name
-                            if parsed_name.startswith(product_name.lower()):
-                                product_links.append((parsed_name, href))
-                                logging.info("Matching product found: %s", href)
-                except Exception as e:
-                    logging.error("Error processing product element: %s", e)
+                                # Check if parsed name contains the input product name
+                                if parsed_name.startswith(product_name.lower().replace("-", "")):
+                                    product_links.append((parsed_name, href))
+                                    logging.info("Matching product found: %s", href)
+                    except Exception as e:
+                        logging.error("Error processing product element: %s", e)
 
         except Exception as e:
             logging.error("Error fetching product links: %s", e)
@@ -157,7 +162,7 @@ class FlipkartScraper:
         try:
             # Click on the button to expand additional data, if present
             try:
-                expand_button = self.driver.find_element(By.CSS_SELECTOR, "button.QqFHMw._4FgsLt")
+                expand_button = self.driver.find_element(By.CSS_SELECTOR, "._4FgsLt")
                 expand_button.click()
                 logging.info("Clicked on the expand button.")
                 time.sleep(random.uniform(2, 4))  # Wait for the expanded content to load

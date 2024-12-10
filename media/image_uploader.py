@@ -4,7 +4,8 @@ import pandas as pd
 import logging
 
 # FTP Configuration
-FTP_HOST = "ftp.synclogy.in"  # Replace with your FTP hostname
+FTP_HOST = "145.223.17.130"  # Replace with your FTP hostname
+# FTP_HOST = "ftp://145.223.17.130"  # Replace with your FTP hostname
 FTP_USER = "u501542776"  # Replace with your FTP username
 FTP_PASS = "u2?TJ]gL3898]5sP"  # Replace with your FTP password
 FTP_BASE_URL = "https://synclogy.in/"  # Base URL for constructing image URLs

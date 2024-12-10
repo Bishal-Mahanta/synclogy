@@ -1,13 +1,12 @@
 import os
 import logging
 import pandas as pd
-from data.input_handler import load_and_validate
+from data.input_handler import load_input_data  # Updated import
 from spec.flipkart_scraper import FlipkartScraper
 from spec.amazon_scraper import AmazonScraper
 from spec.tech_scraper import TechScraper
 from media.image_scraper import process_excel_file
 from media.image_uploader import main as upload_and_save_links
-
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -33,22 +32,15 @@ def append_to_sheet(output_filepath, sheet_name, new_data):
         logging.error(f"Failed to write data to {sheet_name}: {e}")
 
 def process_flipkart_products(input_filepath, output_filepath):
-    product_df = load_and_validate(input_filepath)
-    if product_df is None:
-        logging.error("Error in input file. Please check the input data and try again.")
+    product_df = pd.read_excel(input_filepath)  # Directly load data without validation
+    if product_df.empty:
+        logging.error("Input file is empty or invalid. Please check the file and try again.")
         return
 
     valid_products = []
     for _, row in product_df.iterrows():
         category = row['Category'].lower()
-        if category in ['phone', 'mobile']:
-            if pd.notna(row['Product Name']) and pd.notna(row['Model Name']) and pd.notna(row['Color']):
-                valid_products.append(row)
-        elif category in ['computer', 'laptop']:
-            if pd.notna(row['Product Name']) and pd.notna(row['Model Name']):
-                valid_products.append(row)
-        else:
-            valid_products.append(row)
+        valid_products.append(row)
 
     if not valid_products:
         logging.info("No valid products found in the input file.")
@@ -63,14 +55,10 @@ def process_flipkart_products(input_filepath, output_filepath):
         for _, product in valid_product_df.iterrows():
             product_name = product['Product Name']
             model_name = product['Model Name']
+            product_color = product['Color']
             category = product['Category'].lower()
 
-            search_query = f"{product_name} {model_name}"
-            if category not in ['computer', 'laptop']:
-                color = product.get('Color', '')
-                if pd.notna(color) and color.strip():
-                    search_query += f" {color}"
-
+            search_query = f"{product_name} {model_name} {product_color}".replace('nan', '')
             logging.info(f"Searching for product on Flipkart: {search_query}")
             product_links = flipkart_scraper.search_product(search_query)
 
@@ -115,7 +103,6 @@ def process_amazon_and_91mobiles(input_filepath, output_filepath):
         logging.info("No products to process.")
         return
 
-    
     tech_scraper = TechScraper(headless_mode=False)
     amazon_details = []
 
@@ -126,14 +113,12 @@ def process_amazon_and_91mobiles(input_filepath, output_filepath):
         search_query = f"{product_name} {model_name}".strip()
         logging.info(f"Processing: {search_query}")
 
-        # Step 1: Use 91mobiles (TechScraper) to get some technical details
         tech_details = {}
         tech_link = tech_scraper.search_product(search_query)
         if tech_link:
             logging.info(f"Found link on 91mobiles: {tech_link}")
             tech_details = tech_scraper.extract_technical_details(tech_link)
 
-        # Step 2: Use Amazon to get more product details
         amazon_scraper = AmazonScraper()
         product_links = amazon_scraper.search_product(search_query)
         if not product_links:
@@ -153,25 +138,18 @@ def process_amazon_and_91mobiles(input_filepath, output_filepath):
 
     if amazon_details:
         amazon_df = pd.DataFrame(amazon_details)
-        append_to_sheet(output_filepath, f"Amazon Product Details {str(category).capitalize()}", amazon_df)
+        append_to_sheet(output_filepath, "Amazon Product Details", amazon_df)
         logging.info("Amazon product details saved to 'Amazon Product Details'.")
-        
+
 def process_images():
-    """
-    Process images from the output_scraper_results.xlsx file.
-    """
-    input_file = "data/output_scraper_results.xlsx"  # File to process
+    input_file = "data/output_scraper_results.xlsx"
     if os.path.exists(input_file):
         logging.info(f"Processing images from {input_file}")
         process_excel_file(input_file)
     else:
         logging.error(f"Input file '{input_file}' not found.")
         
-        
 def upload_images_and_update_links():
-    """
-    Upload images to Hostinger and update the output_scraper_results.xlsx file with their URLs.
-    """
     logging.info("Starting image upload and link update process.")
     try:
         upload_and_save_links()
@@ -179,16 +157,15 @@ def upload_images_and_update_links():
     except Exception as e:
         logging.error(f"Error during image upload and link update: {e}")
 
-
 if __name__ == "__main__":
-    input_filepath = "data/product_data.xlsx"  # Example input file path
-    output_filepath = "data/output_scraper_results.xlsx"  # Example output file path
+    # input_filepath = "data/product_data.xlsx"
+    # output_filepath = "data/output_scraper_results.xlsx"
 
-    if not os.path.exists(input_filepath):
-        logging.error(f"Input file '{input_filepath}' not found.")
-    else:
-        process_flipkart_products(input_filepath, output_filepath)
-        process_amazon_and_91mobiles(input_filepath, output_filepath)
+    # if not os.path.exists(input_filepath):
+    #     logging.error(f"Input file '{input_filepath}' not found.")
+    # else:
+    #     process_flipkart_products(input_filepath, output_filepath)
+    #     process_amazon_and_91mobiles(input_filepath, output_filepath)
         
-    process_images()
+    # process_images()
     upload_images_and_update_links()
