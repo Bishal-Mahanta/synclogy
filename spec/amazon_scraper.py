@@ -132,7 +132,7 @@ class AmazonScraper:
 
             # Description
             try:
-                desc_elements = self.driver.find_elements(By.CSS_SELECTOR, "ul.a-unordered-list > li > span")
+                desc_elements = self.driver.find_elements(By.CSS_SELECTOR, "ul.a-unordered-list > li.a-spacing-mini > span")
                 product_details["Description"] = " ".join([desc.text.strip() for desc in desc_elements])
             except Exception:
                 logging.warning("Description not found.")
@@ -187,8 +187,23 @@ class AmazonScraper:
 
             # Apply Amazon-specific URL filtering logic
             def filter_amazon_urls(urls):
+                """
+                Filters and modifies Amazon image URLs:
+                - Replaces '_SL1200_', '_SL1500_', '_SY355_' with '_SL1664_'.
+                - Ensures all URLs are unique using a set.
+                """
                 allowed_suffixes = ['_SL1200_', '_SL1500_', '_SY355_']
-                return [url for url in urls if any(suffix in url for suffix in allowed_suffixes)]
+                modified_urls = set()
+
+                for url in urls:
+                    for suffix in allowed_suffixes:
+                        if suffix in url:
+                            modified_url = url.replace(suffix, '_SL1664_')
+                            modified_urls.add(modified_url)
+                            break  # Stop checking other suffixes once a match is found
+
+                return list(modified_urls)
+
 
             filtered_images = filter_amazon_urls(image_urls)
             product_details["Images"] = list(set(filtered_images))

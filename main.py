@@ -72,7 +72,7 @@ def process_flipkart_products(input_filepath, output_filepath):
                             product_details[table_entry["Header"]] = table_entry["Data"]
                     
                     if product_details:
-                        sheet_name = f"All Details {category.capitalize()}"
+                        sheet_name = f"Flipkart {category.capitalize()} Details"
                         product_details_df = pd.DataFrame([product_details])
                         append_to_sheet(output_filepath, sheet_name, product_details_df)
                     continue
@@ -99,7 +99,7 @@ def process_flipkart_products(input_filepath, output_filepath):
                         product_details[table_entry["Header"]] = table_entry["Data"]
 
                 if product_details:
-                    sheet_name = f"All Details {category.capitalize()}"
+                    sheet_name = f"Flipkart {category.capitalize()} Details"
                     product_details_df = pd.DataFrame([product_details])
                     append_to_sheet(output_filepath, sheet_name, product_details_df)
 
@@ -198,7 +198,7 @@ def process_amazon_and_91mobiles(input_filepath, output_filepath):
 
     if amazon_details:
         amazon_df = pd.DataFrame(amazon_details)
-        append_to_sheet(output_filepath, "Amazon Product Details", amazon_df)
+        append_to_sheet(output_filepath, f"Amazon {category.capitalize()} Details", amazon_df)
         logging.info("Amazon product details saved to 'Amazon Product Details'.")
 
 

@@ -178,27 +178,27 @@ def process_sheet(sheet_name, df):
                 total_images_found += 1
                 
                 # Check resolution
-                if is_high_resolution(url):
-                    # Generate unique filename
-                    unique_id = uuid.uuid4().hex[:8]
-                    width, height = extract_resolution_from_url(url)
-                    resolution_str = f"{width}x{height}"
+                # if is_high_resolution(url):
+                # Generate unique filename
+                unique_id = uuid.uuid4().hex[:8]
+                width, height = extract_resolution_from_url(url)
+                resolution_str = f"{width}x{height}"
                     
-                    # Always use .png extension
-                    filename = sanitize_filename(
-                        f"{product_name}_original_{img_index:03d}_{resolution_str}_{unique_id}.png"
-                    )
-                    save_path = os.path.join(product_dir, filename)
+                # Always use .png extension
+                filename = sanitize_filename(
+                    f"{product_name}_original_{img_index:03d}_{resolution_str}_{unique_id}.png"
+                )
+                save_path = os.path.join(product_dir, filename)
                     
-                    # Download image
-                    result = download_image(url, save_path)
-                    if result:
-                        print(f"Successfully saved: {result}")
-                        high_res_images_downloaded += 1
-                    else:
-                        print(f"Failed to download: {url}")
+                # Download image
+                result = download_image(url, save_path)
+                if result:
+                    print(f"Successfully saved: {result}")
+                    high_res_images_downloaded += 1
                 else:
-                    print(f"Skipping low-resolution image: {url}")
+                    print(f"Failed to download: {url}")
+                # else:
+                #     print(f"Skipping low-resolution image: {url}")
         
         except Exception as e:
             print(f"Error processing row {index}: {e}")
