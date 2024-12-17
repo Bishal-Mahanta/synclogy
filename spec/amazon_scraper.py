@@ -29,26 +29,57 @@ class AmazonScraper:
         search_url = f"https://www.amazon.in/s?k={product_name.replace(' ', '+').replace('++', '+')}"
         self.driver.get(search_url)
 
-        time.sleep(2)  # Mimic human browsing behavior
+        time.sleep(3)  # Mimic human browsing behavior
         product_links = []
 
         try:
-            product_elements = self.driver.find_elements(By.CSS_SELECTOR, "span.a-size-medium.a-color-base.a-text-normal")
-            for element in product_elements:
+            # Method 1: Your original logic (Do not modify)
+            try:
+                product_elements = self.driver.find_elements(By.CSS_SELECTOR, "a.a-link-normal.s-line-clamp-4")
+                for element in product_elements:
+                    try:
+                        if product_name in element.get_attribute('href').split('/'):
+                            # href = f"www.amazon.in{element.get_attribute('href')}"
+                            href = element.get_attribute('href')
+                            logging.info(f"Matching product found: {product_name}")
+                            product_links.append(href)
+                    except Exception as e:
+                        logging.error(f"Error processing product element with method 1: {e}")
+            except Exception as e:
+                logging.error(f"Error in method 1 for finding product links: {e}")
+
+            # Method 2: Your original logic (Do not modify)
+            if not product_links:  # Use method 2 only if method 1 did not find links
+                logging.warning("No links found with the first method. Attempting fallback method...")
                 try:
-                    product_title = element.text.strip()
-                    if product_name.lower() in product_title.lower():
-                        parent_a = element.find_element(By.XPATH, "./ancestor::a")
-                        href = parent_a.get_attribute("href")
-                        logging.info(f"Matching product found: {product_title}")
-                        product_links.append(href)
+                    product_elements = self.driver.find_elements(By.CSS_SELECTOR, "span.a-size-medium.a-color-base.a-text-normal")
+                    for element in product_elements:
+                        try:
+                            product_title = element.text.strip()
+                            if product_name.lower() in product_title.lower():
+                                parent_a = element.find_element(By.XPATH, "./ancestor::a")
+                                href = parent_a.get_attribute("href")
+                                logging.info(f"Matching product found: {product_title}")
+                                product_links.append(href)
+                    
+                        except Exception as e:
+                            logging.error(f"Error processing product element with method 2: {e}")
                 except Exception as e:
-                    logging.error(f"Error processing product element: {e}")
+                    logging.error(f"Error in fallback method for finding product links: {e}")
 
         except Exception as e:
-            logging.error(f"Error fetching product links: {e}")
+            logging.error(f"Error during product search: {e}")
+
+        # Deduplicate product links
+        product_links = list(set(product_links))
+
+        if product_links:
+            logging.info(f"Total matching product links found: {len(product_links)}")
+        else:
+            logging.warning("No matching product links found.")
 
         return product_links
+
     
     def extract_price_details(self):
         """
@@ -143,23 +174,15 @@ class AmazonScraper:
 
             # Extract meta title, keywords, and description
             try:
-                product_details["Meta Title"] = self.driver.find_element(By.CSS_SELECTOR, '#a-page > meta:nth-child(29)').get_attribute("content")
+                product_details["Meta Title"] = self.driver.find_element(By.CSS_SELECTOR, '#a-page > meta[name="title"]').get_attribute("content")
+                product_details["Meta Description"] = self.driver.find_element(By.CSS_SELECTOR, '#a-page > meta[name="description"]').get_attribute("content")
                 product_details["Meta Keywords"] = self.driver.find_element(By.CSS_SELECTOR, 'meta[name="keywords"]').get_attribute("content")
-                product_details["Meta Description"] = self.driver.find_element(By.CSS_SELECTOR, '#a-page > meta:nth-child(31)').get_attribute("content")
             except NoSuchElementException:
                 logging.warning("Meta information not found for product: %s", link)
 
             # Extract Unique Number for Amazon
             try:
-                # # Split the URL on '/' and search for the segment starting with 'dp'
-                # unique_id = None
-                # for segment in link.split('/'):
-                #     if 'dp' in segment:  # Check if 'dp' exists in the segment
-                #         unique_id = segment.split('dp')[-1]  # Extract everything after 'dp'
-                #         # if len(unique_id) >= 10:  # Ensure the ID has at least 10 characters
-                #         #     unique_id = unique_id[:10]  # Take exactly 10 characters
-                #         # break
-                product_details["Unique"] = link.rsplit('/', 1)[-1]
+                product_details["Unique"] = str(link.split('/')[5]).replace('?th=1', '')
             except:
                 logging.warning("Unable to get the Unique ID for: %s", link)
 

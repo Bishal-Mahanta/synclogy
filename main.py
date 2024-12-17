@@ -135,6 +135,7 @@ def process_amazon_and_91mobiles(input_filepath, output_filepath):
         link_rel = product.get('91 Link')  # Check for 91mobiles link
         model_name = product.get('Model Name', '')
         category = product['Category']
+        asin = product.get('Asin')
         search_query = f"{product_name} {model_name}".strip()
         logging.info(f"Processing: {search_query}")
 
@@ -174,10 +175,14 @@ def process_amazon_and_91mobiles(input_filepath, output_filepath):
                 logging.error(f"Error extracting Amazon product details from direct link: {e}")
 
         # If no direct link, search for Amazon link
-        product_links = amazon_scraper.search_product(search_query)
-        if not product_links:
-            logging.warning(f"No products found for: {search_query}")
-            continue
+        if pd.notna(asin):
+            logging.info(f"Using Asin: {asin}")
+            product_links = amazon_scraper.search_product(asin)
+        else:
+            product_links = amazon_scraper.search_product(search_query)
+            if not product_links:
+                logging.warning(f"No products found for: {search_query}")
+                continue
 
         # Process the first matching Amazon link
         for link in product_links:
