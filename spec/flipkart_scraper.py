@@ -78,6 +78,7 @@ class FlipkartScraper:
             "Meta Title": "NA",
             "Meta Keywords": "NA",
             "Meta Description": "NA",
+            "Unique": "NA",
             "Images": []
         }
 
@@ -121,6 +122,18 @@ class FlipkartScraper:
                 product_details["Meta Description"] = self.driver.find_element(By.CSS_SELECTOR, "head > meta[property='og:description']").get_attribute("content")
             except NoSuchElementException:
                 logging.warning("Meta information not found for product: %s", link)
+
+            # Extract Unique Number for Flipkart
+            try:
+                # Split URL on '/' and '=' and look for a segment starting with 'itm'
+                unique_id = None
+                for segment in link.split('/'):
+                    if 'itm' in segment:  # Check if 'itm' exists in the segment
+                        unique_id = segment.split('itm')[-1][:12]  # Extract the 12-character unique ID
+                        break
+                product_details["Unique"] = unique_id
+            except:
+                logging.warning("Unable to get the Unique ID for: %s", link)
 
             # Extract images
             image_elements = self.driver.find_elements(By.CSS_SELECTOR, "img._0DkuPH")

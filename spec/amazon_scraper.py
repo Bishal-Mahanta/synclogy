@@ -111,6 +111,10 @@ class AmazonScraper:
             "Offer Price": "NA",
             "MRP": "NA",
             "Description": "NA",
+            "Meta Title": "NA",
+            "Meta Keywords": "NA",
+            "Meta Description": "NA",
+            "Unique": "NA",
             "Images": [],
         }
 
@@ -136,6 +140,28 @@ class AmazonScraper:
                 product_details["Description"] = " ".join([desc.text.strip() for desc in desc_elements])
             except Exception:
                 logging.warning("Description not found.")
+
+            # Extract meta title, keywords, and description
+            try:
+                product_details["Meta Title"] = self.driver.find_element(By.CSS_SELECTOR, '#a-page > meta:nth-child(29)').get_attribute("content")
+                product_details["Meta Keywords"] = self.driver.find_element(By.CSS_SELECTOR, 'meta[name="keywords"]').get_attribute("content")
+                product_details["Meta Description"] = self.driver.find_element(By.CSS_SELECTOR, '#a-page > meta:nth-child(31)').get_attribute("content")
+            except NoSuchElementException:
+                logging.warning("Meta information not found for product: %s", link)
+
+            # Extract Unique Number for Amazon
+            try:
+                # # Split the URL on '/' and search for the segment starting with 'dp'
+                # unique_id = None
+                # for segment in link.split('/'):
+                #     if 'dp' in segment:  # Check if 'dp' exists in the segment
+                #         unique_id = segment.split('dp')[-1]  # Extract everything after 'dp'
+                #         # if len(unique_id) >= 10:  # Ensure the ID has at least 10 characters
+                #         #     unique_id = unique_id[:10]  # Take exactly 10 characters
+                #         # break
+                product_details["Unique"] = link.rsplit('/', 1)[-1]
+            except:
+                logging.warning("Unable to get the Unique ID for: %s", link)
 
         except Exception as e:
             logging.error(f"Error extracting product details: {e}")
