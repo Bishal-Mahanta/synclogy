@@ -97,8 +97,9 @@ class FlipkartScraper:
 
             # Extract MRP
             try:
-                mrp_element = self.driver.find_element(By.CSS_SELECTOR, "div.yRaY8j.A6+.A6+E6v")
-                product_details["MRP"] = mrp_element.text.strip()
+                mrp_element = self.driver.execute_script("return document.querySelector('.yRaY8j').textContent;")              
+                product_details["MRP"] = mrp_element.strip()
+                # product_details["MRP"] = mrp_element.get_attribute("innerText").strip()
             except NoSuchElementException:
                 try:
                     mrp_element = self.driver.find_element(By.CSS_SELECTOR, "div.Nx9bqj.CxhGGd")
@@ -127,16 +128,16 @@ class FlipkartScraper:
 
             # Apply Flipkart-specific URL manipulation logic
             def manipulate_flipkart_urls(urls):
+                """
+                Manipulates Flipkart image URLs to keep only '1664/1664' resolution and replace 'q=70' with 'q=100'.
+                """
                 manipulated_urls = set()  # Use a set to avoid duplicates
                 for url in urls:
-                    if '128/128' in url:  # Replace '128/128' and add modified URLs
-                        url_416 = url.replace('128/128', '416/416')
-                        manipulated_urls.add(url_416.replace('q=70', 'q=100'))  # Replace q=70 with q=100
-                        
-                        url_1664 = url.replace('128/128', '1664/1664')
-                        manipulated_urls.add(url_1664.replace('q=70', 'q=100'))  # Replace q=70 with q=100
-                        manipulated_urls.update([url_416, url_1664])
+                    if '128/128' in url:  # Replace '128/128' with '1664/1664'
+                        url_1664 = url.replace('128/128', '1664/1664').replace('q=70', 'q=100')
+                        manipulated_urls.add(url_1664)
                 return list(manipulated_urls)
+
 
             manipulated_images = manipulate_flipkart_urls(image_urls)
             product_details["Images"] = manipulated_images
