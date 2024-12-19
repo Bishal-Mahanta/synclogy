@@ -68,6 +68,7 @@ class FlipkartScraper:
         """
         logging.info("Extracting details from: %s", link)
         self.driver.get(link)
+        # self.driver.implicitly_wait(random.uniform(2,4))
         time.sleep(random.uniform(2, 4))  # Random delay to mimic human behavior
 
         product_details = {
@@ -98,15 +99,22 @@ class FlipkartScraper:
 
             # Extract MRP
             try:
-                mrp_element = self.driver.execute_script("return document.querySelector('.yRaY8j').textContent;")              
-                product_details["MRP"] = mrp_element.strip()
-                # product_details["MRP"] = mrp_element.get_attribute("innerText").strip()
+                # Attempt to extract MRP using JavaScript
+                mrp_element = self.driver.execute_script(
+                    "let el = document.querySelector('.yRaY8j'); return el ? el.textContent : null;"
+                )
+                if mrp_element:
+                    product_details["MRP"] = mrp_element.strip()
+                else:
+                    raise NoSuchElementException("MRP element not found with .yRaY8j selector")
             except NoSuchElementException:
                 try:
+                    # Fallback to locating the element directly with Selenium
                     mrp_element = self.driver.find_element(By.CSS_SELECTOR, "div.Nx9bqj.CxhGGd")
                     product_details["MRP"] = mrp_element.text.strip()
                 except NoSuchElementException:
                     logging.warning("MRP not found for product: %s", link)
+
 
             # Extract description
             try:

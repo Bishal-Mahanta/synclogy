@@ -62,7 +62,7 @@ def process_flipkart_products(input_filepath, output_filepath):
 
             # If a direct link is provided, use it directly
             if pd.notna(link) and 'flipkart' in link.lower():
-                logging.info(f"Using direct link for product: {product_name}")
+                logging.info(f"Using direct link for product: {product_name} {model_name}")
                 try:
                     product_details = flipkart_scraper.extract_product_details(link)
                     additional_table_data = flipkart_scraper.extract_additional_table_data(link)
@@ -80,7 +80,12 @@ def process_flipkart_products(input_filepath, output_filepath):
                     logging.error(f"Error processing direct link for {product_name}: {e}")
             
             # If no direct link, proceed with search
-            search_query = f"{product_name} {model_name} {product_color}".replace('nan', '')
+            search_query = None
+            if pd.notna(product_color):
+                search_query = f"{product_name} {model_name} {product_color}".replace('nan', '').strip()
+            else:
+                search_query = f"{product_name} {model_name}".replace('nan', '').strip()
+
             logging.info(f"Searching for product on Flipkart: {search_query}")
             product_links = flipkart_scraper.search_product(search_query)
 
@@ -240,12 +245,12 @@ if __name__ == "__main__":
     input_filepath = "data/product_data.xlsx"
     output_filepath = "data/output_scraper_results.xlsx"
 
-    if not os.path.exists(input_filepath):
-        logging.error(f"Input file '{input_filepath}' not found.")
-    else:
-        process_flipkart_products(input_filepath, output_filepath)
-        process_amazon_and_91mobiles(input_filepath, output_filepath)
+    # if not os.path.exists(input_filepath):
+    #     logging.error(f"Input file '{input_filepath}' not found.")
+    # else:
+    #     process_flipkart_products(input_filepath, output_filepath)
+    #     process_amazon_and_91mobiles(input_filepath, output_filepath)
         
     # process_images()
-    # style_and_optimize_images()  # Style and optimize images
+    style_and_optimize_images()  # Style and optimize images
     # upload_images_and_update_links()
