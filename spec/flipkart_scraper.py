@@ -126,9 +126,9 @@ class FlipkartScraper:
 
             # Extract meta title, keywords, and description
             try:
-                product_details["Meta Title"] = self.driver.find_element(By.CSS_SELECTOR, "head > meta[property='og:title']").get_attribute("content")
-                product_details["Meta Keywords"] = self.driver.find_element(By.CSS_SELECTOR, "head > meta[name='Keywords']").get_attribute("content")
-                product_details["Meta Description"] = self.driver.find_element(By.CSS_SELECTOR, "head > meta[property='og:description']").get_attribute("content")
+                product_details["Meta Title"] = str(self.driver.find_element(By.CSS_SELECTOR, "head > meta[property='og:title']").get_attribute("content")).replace('On Flipkart.com', '')
+                product_details["Meta Keywords"] = str(self.driver.find_element(By.CSS_SELECTOR, "head > meta[name='Keywords']").get_attribute("content")).replace('Flipkart', '')
+                product_details["Meta Description"] = str(self.driver.find_element(By.CSS_SELECTOR, "head > meta[property='og:description']").get_attribute("content")).replace(' to shop at Flipkart', '')
             except NoSuchElementException:
                 logging.warning("Meta information not found for product: %s", link)
 
