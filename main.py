@@ -1,13 +1,18 @@
 import os
 import logging
 import pandas as pd
-from data.input_handler import load_input_data  # Updated import
+import time
+import random
+from data.input_handler import load_input_data, find_input_file  # Updated import
 from spec.flipkart_scraper import FlipkartScraper
 from spec.amazon_scraper import AmazonScraper
 from spec.tech_scraper import TechScraper
 from media.image_scraper import process_excel_file
 from media.image_uploader import main as upload_and_save_links
 from media.image_styler_and_optimizer import process_images_in_directory
+from scripts.merge_phone_sheets import process_phone_sheets
+from db.db_operations import save_products
+from db.database import update_table_schema, create_products_table
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -33,7 +38,7 @@ def append_to_sheet(output_filepath, sheet_name, new_data):
         logging.error(f"Failed to write data to {sheet_name}: {e}")
 
 def process_flipkart_products(input_filepath, output_filepath):
-    product_df = pd.read_excel(input_filepath)  # Directly load data without validation
+    product_df = pd.read_excel(input_filepath)
     if product_df.empty:
         logging.error("Input file is empty or invalid. Please check the file and try again.")
         return
@@ -52,61 +57,67 @@ def process_flipkart_products(input_filepath, output_filepath):
 
     if not valid_product_df.empty:
         flipkart_scraper = FlipkartScraper()
+        flipkart_scraper.driver.get("https://www.flipkart.com")
+        time.sleep(random.uniform(3, 6))  # Allow cookies and session setup
 
-        for _, product in valid_product_df.iterrows():
-            product_name = product['Product Name']
-            link = product.get('Link')  # Check for direct link
-            model_name = product['Model Name']
-            product_color = product['Color']
-            category = product['Category'].lower()
+        for index, product in valid_product_df.iterrows():
+            try:
+                logging.info(f"Processing product {index + 1}/{len(valid_product_df)}: {product['Product Name']}")
+                product_name = product['Product Name']
+                link = product.get('Link')
+                model_name = product['Model Name']
+                product_color = product['Color']
+                category = product['Category'].lower()
 
-            # If a direct link is provided, use it directly
-            if pd.notna(link) and 'flipkart' in link.lower():
-                logging.info(f"Using direct link for product: {product_name} {model_name}")
-                try:
-                    product_details = flipkart_scraper.extract_product_details(link)
-                    additional_table_data = flipkart_scraper.extract_additional_table_data(link)
-                    
-                    if additional_table_data:
-                        for table_entry in additional_table_data:
-                            product_details[table_entry["Header"]] = table_entry["Data"]
-                    
-                    if product_details:
-                        sheet_name = f"Flipkart {category.capitalize()} Details"
-                        product_details_df = pd.DataFrame([product_details])
-                        append_to_sheet(output_filepath, sheet_name, product_details_df)
-                    continue
-                except Exception as e:
-                    logging.error(f"Error processing direct link for {product_name}: {e}")
-            
-            # If no direct link, proceed with search
-            search_query = None
-            if pd.notna(product_color):
-                search_query = f"{product_name} {model_name} {product_color}".replace('nan', '').strip()
-            else:
-                search_query = f"{product_name} {model_name}".replace('nan', '').strip()
+                if pd.notna(link) and 'flipkart' in link.lower():
+                    logging.info(f"Using direct link for product: {product_name}")
+                    try:
+                        product_details = flipkart_scraper.extract_product_details(link)
+                        additional_table_data = flipkart_scraper.extract_additional_table_data(link)
 
-            logging.info(f"Searching for product on Flipkart: {search_query}")
-            product_links = flipkart_scraper.search_product(search_query)
+                        if additional_table_data:
+                            for table_entry in additional_table_data:
+                                product_details[table_entry["Header"]] = table_entry["Data"]
 
-            if not product_links:
-                logging.warning(f"Product not found: {search_query}")
-                not_found_products.append(product)
+                        if product_details:
+                            sheet_name = f"Flipkart {category.capitalize()} Details"
+                            product_details_df = pd.DataFrame([product_details])
+                            append_to_sheet(output_filepath, sheet_name, product_details_df)
+                    except Exception as e:
+                        logging.error(f"Error processing direct link for {product_name}: {e}")
+                        continue
+
+                else:
+                    if pd.notna(product_color):
+                        search_query = f"{product_name} {model_name} {product_color}".strip()
+                    else:
+                        search_query = f"{product_name} {model_name}".strip()
+
+                    logging.info(f"Searching for product on Flipkart: {search_query}")
+                    product_links = flipkart_scraper.search_product(search_query)
+
+                    if not product_links:
+                        logging.warning(f"Product not found: {search_query}")
+                        not_found_products.append(product)
+                        continue
+
+                    for parsed_name, link in product_links:
+                        logging.info(f"Extracting details for: {parsed_name}")
+                        product_details = flipkart_scraper.extract_product_details(link)
+
+                        additional_table_data = flipkart_scraper.extract_additional_table_data(link)
+                        if additional_table_data:
+                            for table_entry in additional_table_data:
+                                product_details[table_entry["Header"]] = table_entry["Data"]
+
+                        if product_details:
+                            sheet_name = f"Flipkart {category.capitalize()} Details"
+                            product_details_df = pd.DataFrame([product_details])
+                            append_to_sheet(output_filepath, sheet_name, product_details_df)
+
+            except Exception as e:
+                logging.error(f"Error processing product {index + 1}: {product['Product Name']}. Error: {e}")
                 continue
-
-            for parsed_name, link in product_links:
-                logging.info(f"Extracting details for: {parsed_name}")
-                product_details = flipkart_scraper.extract_product_details(link)
-
-                additional_table_data = flipkart_scraper.extract_additional_table_data(link)
-                if additional_table_data:
-                    for table_entry in additional_table_data:
-                        product_details[table_entry["Header"]] = table_entry["Data"]
-
-                if product_details:
-                    sheet_name = f"Flipkart {category.capitalize()} Details"
-                    product_details_df = pd.DataFrame([product_details])
-                    append_to_sheet(output_filepath, sheet_name, product_details_df)
 
         flipkart_scraper.close()
 
@@ -114,6 +125,7 @@ def process_flipkart_products(input_filepath, output_filepath):
         not_found_df = pd.DataFrame(not_found_products)
         append_to_sheet(output_filepath, "To Be Checked Again", not_found_df)
         logging.info("Products not found on Flipkart saved to 'To Be Checked Again'.")
+
 
 def process_amazon_and_91mobiles(input_filepath, output_filepath):
     if not os.path.exists(output_filepath):
@@ -239,18 +251,108 @@ def style_and_optimize_images():
     process_images_in_directory(input_directory)
     logging.info("Image styling and optimization completed.")
 
+def merge_phone_details():
+    """
+    Merge phone details and create the final sheet.
+    """
+    output_filepath = "data/output_scraper_results.xlsx"
+    result_filepath = "data/final_sheet.xlsx"
+    image_links_filepath = "data/uploaded_image_links.xlsx"
+    try:
+        logging.info("Starting the merging process for phone details.")
+        process_phone_sheets(output_filepath, result_filepath, image_links_filepath)
+        logging.info("Phone details merged successfully.")
+    except Exception as e:
+        logging.error(f"Error during merging phone details: {e}")
 
+
+def validate_columns(dataframe, required_columns):
+    """
+    Checks if all required columns are present in the DataFrame.
+    
+    Parameters:
+        dataframe (DataFrame): Data to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        bool: True if all columns are present, False otherwise.
+    """
+    missing_columns = [col for col in required_columns if col not in dataframe.columns]
+    if missing_columns:
+        logging.warning(f"Missing columns: {', '.join(missing_columns)}")
+        return False
+    return True
+
+
+
+def save_final_sheet_to_db():
+    """
+    Reads the final sheet and saves the data to the database.
+    """
+    final_sheet_path = "data/final_sheet.xlsx"
+    source = "Synclogy"
+    required_columns = ["Product Name", "Colors"]  # Minimum required columns
+
+    try:
+        # Load the final sheet
+        data = pd.read_excel(final_sheet_path)
+        if data.empty:
+            logging.error("Final sheet is empty. Nothing to save.")
+            return
+
+        # Validate required columns
+        if not validate_columns(data, required_columns):
+            logging.error("Required columns are missing. Cannot save to database.")
+            return
+
+        # Fill missing optional columns with defaults
+        data["Colors"] = data["Colors"].fillna("Unknown")
+        data["RAM"] = data["RAM"].fillna("Unknown")
+        data["Primary Camera"] = data["Primary Camera"].fillna("Unknown")
+        data["Secondary Camera"] = data["Secondary Camera"].fillna("Unknown")
+
+        # **Preprocess Data for Consistency**
+        data["Colors"] = data["Colors"].str.title()  # Normalize Colors
+        data["RAM"] = data["RAM"].str.replace(" ", "").str.upper()  # Normalize RAM
+
+        logging.info(f"Saving data from {final_sheet_path} to the database.")
+        save_products(data, source, category="Phone")  # Save processed data
+        logging.info("Data saved to the database successfully.")
+    except Exception as e:
+        logging.error(f"Error saving data to database: {e}")
 
 if __name__ == "__main__":
-    input_filepath = "data/product_data.xlsx"
+
+    create_products_table()
+    update_table_schema()
+    
+    input_directory = "data/input"
     output_filepath = "data/output_scraper_results.xlsx"
 
-    # if not os.path.exists(input_filepath):
-    #     logging.error(f"Input file '{input_filepath}' not found.")
-    # else:
-    #     process_flipkart_products(input_filepath, output_filepath)
-    #     process_amazon_and_91mobiles(input_filepath, output_filepath)
+
+    # Find the most recent input file
+    input_filepath = find_input_file(input_directory)
+    if not input_filepath:
+        logging.error("No valid input file found. Exiting...")
+        exit(1)
+
+    # Load and validate input data
+    input_data = load_input_data(input_filepath)
+    if input_data is None:
+        logging.error("Input data validation failed. Exiting...")
+        exit(1)
+
+    if not os.path.exists(input_filepath):
+        logging.error(f"Input file '{input_filepath}' not found.")
+    else:
+        process_flipkart_products(input_filepath, output_filepath)
+        process_amazon_and_91mobiles(input_filepath, output_filepath)
         
-    # process_images()
+    process_images()
     style_and_optimize_images()  # Style and optimize images
-    # upload_images_and_update_links()
+    upload_images_and_update_links()
+
+    merge_phone_details()
+    save_final_sheet_to_db()
+
+    logging.info("Synclogy process completed successfully.")

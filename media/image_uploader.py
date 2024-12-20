@@ -88,12 +88,12 @@ def upload_styled_images(ftp, local_base_dir, remote_base_dir):
             remote_path = os.path.join(remote_base_dir, relative_path).replace("\\", "/")
             
             for file in files:
-                if file.lower().endswith(".webp"):  # Upload only WEBP files
-                    local_path = os.path.join(root, file)
-                    remote_file_path = os.path.join(remote_path, file).replace("\\", "/")
-                    file_url = upload_file(ftp, local_path, remote_file_path)
-                    if file_url:
-                        uploaded_urls.append({"File Name": file, "URL": file_url})
+                # if file.lower().endswith(".webp"):  # Upload only WEBP files
+                local_path = os.path.join(root, file)
+                remote_file_path = os.path.join(remote_path, file).replace("\\", "/")
+                file_url = upload_file(ftp, local_path, remote_file_path)
+                if file_url:
+                    uploaded_urls.append({"File Name": file, "URL": file_url})
     return uploaded_urls
 
 def save_urls_to_excel(uploaded_urls, output_file):
