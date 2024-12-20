@@ -94,7 +94,7 @@ class FlipkartScraper:
             # Extract offer price
             try:
                 offer_price_element = self.driver.find_element(By.CSS_SELECTOR, "div.Nx9bqj.CxhGGd")
-                product_details["Offer Price"] = offer_price_element.text.strip()
+                product_details["Offer Price"] = offer_price_element.text.replace('₹', '').replace(',', '').strip()
             except NoSuchElementException:
                 logging.warning("Offer price not found for product: %s", link)
 
@@ -105,14 +105,14 @@ class FlipkartScraper:
                     "let el = document.querySelector('.yRaY8j'); return el ? el.textContent : null;"
                 )
                 if mrp_element:
-                    product_details["MRP"] = mrp_element.strip()
+                    product_details["MRP"] = str(mrp_element.strip()).replace('₹', '').replace(',', '').strip()
                 else:
                     raise NoSuchElementException("MRP element not found with .yRaY8j selector")
             except NoSuchElementException:
                 try:
                     # Fallback to locating the element directly with Selenium
                     mrp_element = self.driver.find_element(By.CSS_SELECTOR, "div.Nx9bqj.CxhGGd")
-                    product_details["MRP"] = mrp_element.text.strip()
+                    product_details["MRP"] = mrp_element.text.replace('₹', '').replace(',', '').strip()
                 except NoSuchElementException:
                     logging.warning("MRP not found for product: %s", link)
 

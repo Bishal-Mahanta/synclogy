@@ -21,7 +21,7 @@ class TechScraper(BaseScraper):
             )
             # Clear and enter the product name into the search box
             search_box.clear()
-            search_box.send_keys(str(product_name).replace(' ', '+').replace('++', '+'))
+            search_box.send_keys(str(product_name))
 
             # Adding a small delay to ensure all typing is registered
             WebDriverWait(self.driver, 3).until(
