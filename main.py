@@ -12,7 +12,7 @@ from spec.tech_scraper import TechScraper
 from media.image_scraper import process_excel_file
 from media.image_uploader import main as upload_and_save_links
 from media.image_styler_and_optimizer import process_images_in_directory
-from scripts.merge_phone_sheets import process_phone_sheets
+from scripts.merge_sheets import process_phone_sheets
 from db.db_operations import save_products, is_product_in_database, insert_or_update_product
 from db.database import update_table_schema, create_products_table
 from db.database import connect_db
@@ -272,19 +272,34 @@ def style_and_optimize_images():
     process_images_in_directory(input_directory)
     logging.info("Image styling and optimization completed.")
 
-def merge_phone_details():
+
+def merge_details():
     """
-    Merge phone details and create the final sheet.
+    Merge phone details and create the final sheet if relevant sheets are present.
     """
+    import pandas as pd
+
     output_filepath = "data/output_scraper_results.xlsx"
     result_filepath = "data/final_sheet.xlsx"
     image_links_filepath = "data/uploaded_image_links.xlsx"
+
     try:
         logging.info("Starting the merging process for phone details.")
-        process_phone_sheets(output_filepath, result_filepath, image_links_filepath)
-        logging.info("Phone details merged successfully.")
+
+        # Load the workbook and check for relevant sheets
+        workbook = pd.ExcelFile(output_filepath)
+        relevant_sheets = [sheet for sheet in workbook.sheet_names if "phone" in sheet.lower()]
+
+        if relevant_sheets:
+            logging.info(f"Found relevant sheets: {relevant_sheets}. Proceeding with merging.")
+            process_phone_sheets(output_filepath, result_filepath, image_links_filepath)
+            logging.info("Phone details merged successfully.")
+        else:
+            logging.info("No relevant sheets found with 'phone' in the name. Skipping merging process.")
+
     except Exception as e:
         logging.error(f"Error during merging phone details: {e}")
+
 
 
 def validate_columns(dataframe, required_columns):
@@ -415,7 +430,7 @@ if __name__ == "__main__":
     style_and_optimize_images()  # Style and optimize images
     upload_images_and_update_links()
 
-    merge_phone_details()
+    merge_details()
     save_final_sheet_to_db()
 
     logging.info("Synclogy process completed successfully.")
