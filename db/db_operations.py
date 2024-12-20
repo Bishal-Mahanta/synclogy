@@ -71,3 +71,17 @@ def save_products(dataframe, source, category):
 
     conn.commit()
     conn.close()
+
+def is_product_in_database(product_name, session):
+    """
+    Check if a product with a matching name exists in the database.
+    :param product_name: The name of the product to search for (partial match allowed).
+    :param session: SQLAlchemy session.
+    :return: Boolean indicating if the product exists.
+    """
+    query = session.execute(
+        "SELECT product_name FROM products WHERE product_name LIKE :name",
+        {"name": f"%{product_name}%"}
+    )
+    result = query.fetchall()
+    return len(result) > 0

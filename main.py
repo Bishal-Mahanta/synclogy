@@ -3,6 +3,8 @@ import logging
 import pandas as pd
 import time
 import random
+import shutil
+from datetime import datetime
 from data.input_handler import load_input_data, find_input_file  # Updated import
 from spec.flipkart_scraper import FlipkartScraper
 from spec.amazon_scraper import AmazonScraper
@@ -11,8 +13,9 @@ from media.image_scraper import process_excel_file
 from media.image_uploader import main as upload_and_save_links
 from media.image_styler_and_optimizer import process_images_in_directory
 from scripts.merge_phone_sheets import process_phone_sheets
-from db.db_operations import save_products
+from db.db_operations import save_products, is_product_in_database, insert_or_update_product
 from db.database import update_table_schema, create_products_table
+from db.database import connect_db
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -60,14 +63,27 @@ def process_flipkart_products(input_filepath, output_filepath):
         flipkart_scraper.driver.get("https://www.flipkart.com")
         time.sleep(random.uniform(3, 6))  # Allow cookies and session setup
 
+        conn = connect_db()
+        cursor = conn.cursor()
+
         for index, product in valid_product_df.iterrows():
             try:
                 logging.info(f"Processing product {index + 1}/{len(valid_product_df)}: {product['Product Name']}")
-                product_name = product['Product Name']
+                product_name = product['Product Name'].lower()
+                model_name = product['Model Name'].lower()
                 link = product.get('Link')
-                model_name = product['Model Name']
                 product_color = product['Color']
                 category = product['Category'].lower()
+
+                # Combine product name and model name for search query
+                search_query = f"{product_name} {model_name}".strip()
+
+                # Check if product exists in the database
+                cursor.execute("SELECT 1 FROM products WHERE LOWER(REPLACE(product_name, 'iphone', '')) LIKE ?", 
+                               (f"%{search_query}%",))
+                if cursor.fetchone():
+                    logging.info(f"Product '{search_query}' is already in the database. Skipping.")
+                    continue
 
                 if pd.notna(link) and 'flipkart' in link.lower():
                     logging.info(f"Using direct link for product: {product_name}")
@@ -115,10 +131,15 @@ def process_flipkart_products(input_filepath, output_filepath):
                             product_details_df = pd.DataFrame([product_details])
                             append_to_sheet(output_filepath, sheet_name, product_details_df)
 
+                        # Save the processed product to the database
+                        insert_or_update_product(cursor, product_details)
+
             except Exception as e:
                 logging.error(f"Error processing product {index + 1}: {product['Product Name']}. Error: {e}")
                 continue
 
+        conn.commit()
+        conn.close()
         flipkart_scraper.close()
 
     if not_found_products:
@@ -320,6 +341,48 @@ def save_final_sheet_to_db():
         logging.info("Data saved to the database successfully.")
     except Exception as e:
         logging.error(f"Error saving data to database: {e}")
+        
+def move_processed_files(input_filepath, additional_files, output_directories, batch_folder="batch"):
+    """
+    Moves processed files and directories into a timestamped batch directory only if all additional_files exist.
+
+    :param input_filepath: Path to the input file (a copy will be created).
+    :param additional_files: List of file paths to be moved.
+    :param output_directories: List of directory paths to be moved.
+    :param batch_folder: Parent folder where the batch directory will be created.
+    """
+    if not additional_files or not all(os.path.exists(file) for file in additional_files):
+        logging.info("Not all additional files exist. Skipping move_processed_files.")
+        return
+
+    try:
+        # Create a timestamped batch directory
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        batch_directory = os.path.join(batch_folder, timestamp)
+        os.makedirs(batch_directory, exist_ok=True)
+
+        # Copy the input file instead of moving it
+        if os.path.exists(input_filepath):
+            shutil.copy(input_filepath, os.path.join(batch_directory, os.path.basename(input_filepath)))
+
+        # Move additional files
+        for file in additional_files:
+            shutil.move(file, os.path.join(batch_directory, os.path.basename(file)))
+
+        # Move output directories
+        for directory in output_directories:
+            if os.path.exists(directory):
+                shutil.move(directory, os.path.join(batch_directory, os.path.basename(directory)))
+
+        # Create a new image directory inside output folder
+        new_images_directory = os.path.join("output", "images")
+        os.makedirs(new_images_directory, exist_ok=True)
+        logging.info(f"New image directory created at '{new_images_directory}'.")
+
+        logging.info(f"All processed files and directories have been moved to '{batch_directory}'.")
+    except Exception as e:
+        logging.error(f"Error moving processed files: {e}")
+
 
 if __name__ == "__main__":
 
@@ -356,3 +419,13 @@ if __name__ == "__main__":
     save_final_sheet_to_db()
 
     logging.info("Synclogy process completed successfully.")
+
+    # Call the function to move processed files
+    additional_files = [
+        "data/final_sheet.xlsx",
+        "data/output_scraper_results.xlsx",
+        "data/uploaded_image_links.xlsx"
+    ]
+    output_directories = ["output/images"]
+
+    move_processed_files(input_filepath, additional_files, output_directories)
