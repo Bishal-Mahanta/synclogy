@@ -1,6 +1,7 @@
 import os
 import logging
 import pandas as pd
+from datetime import datetime
 from data.input_handler import load_input_data  # Updated import
 from spec.flipkart_scraper import FlipkartScraper
 from spec.amazon_scraper import AmazonScraper
@@ -8,6 +9,9 @@ from spec.tech_scraper import TechScraper
 from media.image_scraper import process_excel_file
 from media.image_uploader import main as upload_and_save_links
 from media.image_styler_and_optimizer import process_images_in_directory
+from scripts.price import GoogleShoppingScraper, Product
+from scripts.image_mapper import map_images_to_sheets
+from scripts.batch_processor import BatchProcessor
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -54,7 +58,7 @@ def process_flipkart_products(input_filepath, output_filepath):
         flipkart_scraper = FlipkartScraper()
 
         for _, product in valid_product_df.iterrows():
-            product_name = product['Product Name']
+            product_name = product['Manufacturer']
             link = product.get('Link')  # Check for direct link
             model_name = product['Model Name']
             product_color = product['Color']
@@ -135,7 +139,7 @@ def process_amazon_and_91mobiles(input_filepath, output_filepath):
     amazon_details = []
 
     for _, product in not_found_df.iterrows():
-        product_name = product['Product Name']
+        product_name = product['Manufacturer']
         link = product.get('Link')  # Check for direct Amazon link
         link_rel = product.get('91 Link')  # Check for 91mobiles link
         model_name = product.get('Model Name', '')
@@ -212,45 +216,235 @@ def process_amazon_and_91mobiles(input_filepath, output_filepath):
         logging.info("Amazon product details saved to 'Amazon Product Details'.")
 
 
-def process_images():
+def process_images(input_filepath):
     input_file = "data/output_scraper_results.xlsx"
-    if os.path.exists(input_file):
-        logging.info(f"Processing images from {input_file}")
-        process_excel_file(input_file)
+    if os.path.exists(input_filepath):
+        logging.info(f"Processing images from {input_filepath}")
+        process_excel_file(input_filepath)
     else:
-        logging.error(f"Input file '{input_file}' not found.")
+        logging.error(f"Input file '{input_filepath}' not found.")
         
-def upload_images_and_update_links():
+def upload_images_and_update_links(images_dirpath, image_links_filepath):
     """
     Call the uploader script to upload images to Cloudinary and save their public URLs.
     """
     try:
-        from media.image_uploader import main as upload_and_save_links
+        # from media.image_uploader import main as upload_and_save_links
         logging.info("Starting image upload and link update process.")
-        upload_and_save_links()
+        upload_and_save_links(images_dirpath, image_links_filepath)
         logging.info("Image upload and link update process completed successfully.")
     except Exception as e:
         logging.error(f"Error during image upload and link update: {e}")
 
 
-def style_and_optimize_images():
-    input_directory = "output/images"
+def style_and_optimize_images(input_directory):
+    # input_directory = "data/output/images"
     logging.info("Starting image styling and optimization...")
     process_images_in_directory(input_directory)
     logging.info("Image styling and optimization completed.")
 
+def process_google_shopping_products(filepath):
+    """
+    Reads products from an Excel file, fetches their prices from Google Shopping,
+    and appends vendor details to the same Excel file.
+    """
+    if not os.path.exists(filepath):
+        logging.error(f"File '{filepath}' not found.")
+        return
+
+    try:
+        # Load all sheets
+        all_sheets = pd.read_excel(filepath, sheet_name=None)
+
+        # Initialize the GoogleShoppingScraper
+        scraper = GoogleShoppingScraper(headless=True)
+        logging.info("Initialized GoogleShoppingScraper.")
+
+        with pd.ExcelWriter(filepath, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+            for sheet_name, sheet_data in all_sheets.items():
+                # Skip the "To Be Checked Again" sheet
+                if sheet_name == "To Be Checked Again":
+                    logging.info(f"Skipping sheet: {sheet_name}")
+                    continue
+
+                logging.info(f"Processing sheet: {sheet_name}")
+                if sheet_data.empty:
+                    logging.warning(f"Sheet '{sheet_name}' is empty. Skipping.")
+                    continue
+
+                # Process each product in the sheet
+                for index, row in sheet_data.iterrows():
+                    product_name = row.get("Product Name")
+                    if not product_name:
+                        logging.warning(f"Missing product name in sheet '{sheet_name}' row {index}. Skipping.")
+                        continue
+
+                    logging.info(f"Scraping Google Shopping for: {product_name}")
+                    products = scraper.search_products(product_name)
+
+                    if not products:
+                        logging.warning(f"No results found for: {product_name}")
+                        continue
+
+                    # Limit results to 10 vendors
+                    products = products[:10]
+
+                    # Add new columns dynamically for vendors
+                    for product in products:
+                        vendor_col_price = f"{product.vendor} Price"
+                        vendor_col_url = f"{product.vendor} URL"
+
+                        # Ensure columns exist
+                        if vendor_col_price not in sheet_data.columns:
+                            sheet_data[vendor_col_price] = None
+                        if vendor_col_url not in sheet_data.columns:
+                            sheet_data[vendor_col_url] = None
+
+                        # Update row with vendor details
+                        sheet_data.loc[index, vendor_col_price] = f"{product.currency}{product.price}"
+                        sheet_data.loc[index, vendor_col_url] = product.link
+
+                # Save updated sheet back to the Excel file
+                sheet_data.to_excel(writer, index=False, sheet_name=sheet_name)
+                logging.info(f"Updated data written to sheet: {sheet_name}")
+
+    except Exception as e:
+        logging.error(f"Error processing Google Shopping products: {e}")
+    finally:
+        scraper.close()
+
+def setup_logging():
+    # Create logs directory if it doesn't exist
+    log_dir = "logs"
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # Configure logging to write to both file and console
+    log_file = os.path.join(log_dir, f"scraper_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+    
+    # Configure root logger
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler()
+        ]
+    )
+
+def setup_file_logging(input_filename):
+    """
+    Setup logging for individual file processing
+    """
+    # Create logs directory if it doesn't exist
+    log_dir = "logs"
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # Create a log file named after the input file
+    base_filename = os.path.splitext(input_filename)[0]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = os.path.join(log_dir, f"{base_filename}_{timestamp}.log")
+    
+    # Remove any existing handlers
+    logger = logging.getLogger()
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+    
+    # Configure logging with new handlers
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler()
+        ]
+    )
+    
+    logging.info(f"Started processing file: {input_filename}")
+    return log_file
+
+# NOTE Main file
+def process_single_file(input_filepath):
+    """
+    Process a single input file through the entire workflow
+    """
+    try:
+        filename = os.path.basename(input_filepath)
+        log_file = setup_file_logging(filename)  # Generate log file
+        
+        # Generate output filenames based on input filename
+        base_filename = os.path.splitext(filename)[0]
+        output_filepath = f"data/output/output_{base_filename}.xlsx"
+        image_links_filepath = f"data/output/image_links_{base_filename}.xlsx"
+        
+        # Create output directory if it doesn't exist
+        os.makedirs("data/output", exist_ok=True)
+
+        # Create images directory if it doesn't exist
+        os.makedirs("data/output/images", exist_ok=True)
+
+        images_dirpath = f"data/output/images"
+        
+        # Initial processing
+        logging.info(f"Starting processing for file: {filename}")
+        process_flipkart_products(input_filepath, output_filepath)
+        process_amazon_and_91mobiles(input_filepath, output_filepath)
+        
+        # Image processing
+        process_images(output_filepath)
+        style_and_optimize_images(images_dirpath)
+        upload_images_and_update_links(images_dirpath, image_links_filepath)
+        
+        # Process Google Shopping data
+        if os.path.exists(output_filepath):
+            process_google_shopping_products(output_filepath)
+        
+        # Map images and create batch
+        if os.path.exists(image_links_filepath):
+            if map_images_to_sheets(output_filepath, image_links_filepath):
+                processor = BatchProcessor()
+                if processor.process_batch(input_filepath, output_filepath, image_links_filepath, log_file, images_dirpath):
+                    logging.info(f"Successfully completed processing file: {filename}")
+                    return True
+            else:
+                logging.error(f"Image mapping failed for file: {filename}")
+                return False
+        else:
+            logging.error(f"Image links file not found for: {filename}")
+            return False
+            
+    except Exception as e:
+        logging.error(f"Error processing file {filename}: {e}")
+        return False
+
+
+def main():
+    """
+    Main function to process all Excel files in data/input directory
+    """
+    input_dir = "data/input"
+    
+    # Create input directory if it doesn't exist
+    os.makedirs(input_dir, exist_ok=True)
+    
+    # Get all Excel files in the input directory
+    excel_files = [f for f in os.listdir(input_dir) 
+                  if f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
+    
+    if not excel_files:
+        print(f"No Excel files found in {input_dir}")
+        return
+    
+    # Process each file sequentially
+    for filename in excel_files:
+        input_filepath = os.path.join(input_dir, filename)
+        process_single_file(input_filepath)
 
 
 if __name__ == "__main__":
-    input_filepath = "data/product_data.xlsx"
-    output_filepath = "data/output_scraper_results.xlsx"
-
-    # if not os.path.exists(input_filepath):
-    #     logging.error(f"Input file '{input_filepath}' not found.")
-    # else:
-    #     process_flipkart_products(input_filepath, output_filepath)
-    #     process_amazon_and_91mobiles(input_filepath, output_filepath)
-        
-    # process_images()
-    style_and_optimize_images()  # Style and optimize images
-    # upload_images_and_update_links()
+    # Setup initial basic logging for startup
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+    
+    main()

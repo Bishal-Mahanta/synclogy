@@ -74,13 +74,14 @@ class FlipkartScraper:
         product_details = {
             "Product Name": "NA",
             "Offer Price": "NA",
-            "MRP": "NA",
             "Description": "NA",
             "Meta Title": "NA",
             "Meta Keywords": "NA",
             "Meta Description": "NA",
             "Unique": "NA",
-            "Images": []
+            "Images": [],
+            "Flipkart Price": "NA",
+            "Flipkart.com URL": "NA"
         }
 
         try:
@@ -104,16 +105,23 @@ class FlipkartScraper:
                     "let el = document.querySelector('.yRaY8j'); return el ? el.textContent : null;"
                 )
                 if mrp_element:
-                    product_details["MRP"] = mrp_element.strip()
+                    product_details["Flipkart Price"] = mrp_element.strip()
                 else:
-                    raise NoSuchElementException("MRP element not found with .yRaY8j selector")
+                    raise NoSuchElementException("Flipkart Price not found with .yRaY8j selector")
             except NoSuchElementException:
                 try:
                     # Fallback to locating the element directly with Selenium
                     mrp_element = self.driver.find_element(By.CSS_SELECTOR, "div.Nx9bqj.CxhGGd")
-                    product_details["MRP"] = mrp_element.text.strip()
+                    product_details["Flipkart Price"] = mrp_element.text.strip()
                 except NoSuchElementException:
-                    logging.warning("MRP not found for product: %s", link)
+                    logging.warning("Flipkart Price not found for product: %s", link)
+
+            # Extract Flipkart.com URL
+            try:
+                # Save the link provided for future reference
+                product_details["Flipkart.com URL"] = link
+            except:
+                logging.error("Flipkart.com URL unable to extract")
 
 
             # Extract description

@@ -87,7 +87,7 @@ class AmazonScraper:
         """
         price_details = {
             "Offer Price": "NA",
-            "MRP": "NA"
+            "Amazon.in Price": "NA"
         }
         # Comprehensive price selectors
         price_selectors = {
@@ -99,7 +99,7 @@ class AmazonScraper:
                 "span[data-a-size='xl'] > span.a-offscreen",
                 "div.a-price.a-size-medium.a-color-price > span.a-offscreen"
             ],
-            "MRP": [
+            "Amazon.in Price": [
                 "span.a-text-price > span.a-offscreen",
                 "span.a-price.a-text-price > span.a-offscreen",
                 "span.a-text-price > span.a-offscreen",
@@ -140,13 +140,14 @@ class AmazonScraper:
         product_details = {
             "Product Name": "NA",
             "Offer Price": "NA",
-            "MRP": "NA",
             "Description": "NA",
             "Meta Title": "NA",
             "Meta Keywords": "NA",
             "Meta Description": "NA",
             "Unique": "NA",
             "Images": [],
+            "Amazon.in Price": "NA",
+            "Amazon.in URL": "NA"
         }
 
         try:
@@ -163,6 +164,13 @@ class AmazonScraper:
                 product_details.update(price_info)
             except Exception as e:
                 logging.error(f"Price extraction failed: {e}")
+
+            # Extract Amazon.in URL
+            try:
+                # Save the link provided for future reference
+                product_details["Amazon.in URL"] = link
+            except:
+                logging.error("Amazon.in URL unable to extract")
 
 
             # Description

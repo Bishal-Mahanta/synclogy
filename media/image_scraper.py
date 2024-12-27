@@ -7,7 +7,7 @@ import uuid
 import json
 
 # Define the output directory
-OUTPUT_DIR = "output/images"
+OUTPUT_DIR = "data/output/images"
 
 def safe_create_directory(path):
     """
