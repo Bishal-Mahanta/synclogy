@@ -10,7 +10,12 @@ output/__pycache__/output_manager.cpython-312.pyc
 .vscode/
 output/__pycache__/
 output/images/
+<<<<<<< HEAD
 .pyc
+=======
+batch/
+venv/
+>>>>>>> new
 
 # C extensions
 *.so

@@ -1,4 +1,4 @@
-#!/home/bishal/Documents/Synclogy/synclogy/venv/bin/python3
+#!/home/bishal/Documents/Synclogy/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys

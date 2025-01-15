@@ -88,7 +88,6 @@ def upload_styled_images(ftp, local_base_dir, remote_base_dir):
             remote_path = os.path.join(remote_base_dir, relative_path).replace("\\", "/")
             
             for file in files:
-                # if file.lower().endswith(".webp"):  # Upload only WEBP files
                 local_path = os.path.join(root, file)
                 remote_file_path = os.path.join(remote_path, file).replace("\\", "/")
                 file_url = upload_file(ftp, local_path, remote_file_path)
@@ -108,13 +107,13 @@ def save_urls_to_excel(uploaded_urls, output_file):
         logging.error(f"Error saving URLs to Excel: {e}")
         raise
 
-def main():
+def main(local_directory, output_excel_file):
     """
     Main function to upload images and save their URLs.
     """
-    local_directory = "output/images"  # Base directory to scan for styled_images
+    # local_directory = "output/images"  # Base directory to scan for styled_images
     remote_directory = "images"  # Remote base directory on the FTP server
-    output_excel_file = "data/uploaded_image_links.xlsx"
+    # output_excel_file = "data/uploaded_image_links.xlsx"
 
     ftp = None
     try:

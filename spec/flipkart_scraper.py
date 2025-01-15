@@ -16,7 +16,6 @@ class FlipkartScraper:
         options.add_argument("--disable-gpu")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-cookies")
         self.driver = webdriver.Chrome(options=options)
         self.wait = WebDriverWait(self.driver, 10)
         logging.info("Initialized FlipkartScraper with headless mode: %s", headless_mode)
@@ -75,13 +74,14 @@ class FlipkartScraper:
         product_details = {
             "Product Name": "NA",
             "Offer Price": "NA",
-            "MRP": "NA",
             "Description": "NA",
             "Meta Title": "NA",
             "Meta Keywords": "NA",
             "Meta Description": "NA",
             "Unique": "NA",
-            "Images": []
+            "Images": [],
+            "Flipkart Price": "NA",
+            "Flipkart.com URL": "NA"
         }
 
         try:
@@ -94,7 +94,7 @@ class FlipkartScraper:
             # Extract offer price
             try:
                 offer_price_element = self.driver.find_element(By.CSS_SELECTOR, "div.Nx9bqj.CxhGGd")
-                product_details["Offer Price"] = offer_price_element.text.replace('₹', '').replace(',', '').strip()
+                product_details["Offer Price"] = offer_price_element.text.strip()
             except NoSuchElementException:
                 logging.warning("Offer price not found for product: %s", link)
 
@@ -105,16 +105,23 @@ class FlipkartScraper:
                     "let el = document.querySelector('.yRaY8j'); return el ? el.textContent : null;"
                 )
                 if mrp_element:
-                    product_details["MRP"] = str(mrp_element.strip()).replace('₹', '').replace(',', '').strip()
+                    product_details["Flipkart Price"] = mrp_element.strip()
                 else:
-                    raise NoSuchElementException("MRP element not found with .yRaY8j selector")
+                    raise NoSuchElementException("Flipkart Price not found with .yRaY8j selector")
             except NoSuchElementException:
                 try:
                     # Fallback to locating the element directly with Selenium
                     mrp_element = self.driver.find_element(By.CSS_SELECTOR, "div.Nx9bqj.CxhGGd")
-                    product_details["MRP"] = mrp_element.text.replace('₹', '').replace(',', '').strip()
+                    product_details["Flipkart Price"] = mrp_element.text.strip()
                 except NoSuchElementException:
-                    logging.warning("MRP not found for product: %s", link)
+                    logging.warning("Flipkart Price not found for product: %s", link)
+
+            # Extract Flipkart.com URL
+            try:
+                # Save the link provided for future reference
+                product_details["Flipkart.com URL"] = link
+            except:
+                logging.error("Flipkart.com URL unable to extract")
 
 
             # Extract description
@@ -124,11 +131,17 @@ class FlipkartScraper:
             except NoSuchElementException:
                 logging.warning("Description not found for product: %s", link)
 
+            # Extract short description
+            try:
+                pass
+            except NoSuchElementException:
+                pass
+
             # Extract meta title, keywords, and description
             try:
-                product_details["Meta Title"] = str(self.driver.find_element(By.CSS_SELECTOR, "head > meta[property='og:title']").get_attribute("content")).replace('On Flipkart.com', '')
-                product_details["Meta Keywords"] = str(self.driver.find_element(By.CSS_SELECTOR, "head > meta[name='Keywords']").get_attribute("content")).replace('Flipkart', '')
-                product_details["Meta Description"] = str(self.driver.find_element(By.CSS_SELECTOR, "head > meta[property='og:description']").get_attribute("content")).replace(' to shop at Flipkart', '')
+                product_details["Meta Title"] = self.driver.find_element(By.CSS_SELECTOR, "head > meta[property='og:title']").get_attribute("content")
+                product_details["Meta Keywords"] = self.driver.find_element(By.CSS_SELECTOR, "head > meta[name='Keywords']").get_attribute("content")
+                product_details["Meta Description"] = self.driver.find_element(By.CSS_SELECTOR, "head > meta[property='og:description']").get_attribute("content")
             except NoSuchElementException:
                 logging.warning("Meta information not found for product: %s", link)
 
